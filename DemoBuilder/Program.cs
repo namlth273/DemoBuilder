@@ -46,6 +46,12 @@ namespace DemoBuilder
         protected override void Load(ContainerBuilder builder)
         {
             builder.RegisterType<CarBuilderFacade>().As<ICarBuilderFacade>();
+
+            builder.RegisterType<CarBaseBuilder>().As<ICarBuilderFacade>().Keyed<ICarBuilderFacade>(typeof(ICarBaseBuilder));
+            builder.RegisterType<SideDoorBuilder>().As<ICarBuilderFacade>().Keyed<ICarBuilderFacade>(typeof(ISideDoorBuilder));
+            builder.RegisterType<ChassisBuilder>().As<ICarBuilderFacade>().Keyed<ICarBuilderFacade>(typeof(IChassisBuilder));
+
+            builder.RegisterGeneric(typeof(DependencyDictionary<,>)).As(typeof(IReadOnlyDictionary<,>)).SingleInstance();
         }
     }
 
@@ -109,23 +115,18 @@ namespace DemoBuilder
 
     public class CarBuilderFacade : ICarBuilderFacade
     {
-        private readonly IDictionary<Type, Func<ICarBuilderFacade>> _builders;
+        private readonly IReadOnlyDictionary<Type, ICarBuilderFacade> _builders;
         public virtual ICarBase BaseCar { get; set; }
         public ICarBase Build() => BaseCar;
 
-        public CarBuilderFacade()
+        public CarBuilderFacade(IReadOnlyDictionary<Type, ICarBuilderFacade> builders)
         {
-            _builders = new Dictionary<Type, Func<ICarBuilderFacade>>
-            {
-                { typeof(ICarBaseBuilder), () => new CarBaseBuilder()},
-                { typeof(ISideDoorBuilder), () => new SideDoorBuilder()},
-                { typeof(IChassisBuilder), () => new ChassisBuilder()}
-            };
+            _builders = builders;
         }
 
         public T GetBuilder<T>(ICarBase carBase = null) where T : class, ICarBuilderFacade
         {
-            if (_builders[typeof(T)]() is T builder)
+            if (_builders[typeof(T)] is T builder)
             {
                 builder.BaseCar = carBase ?? BaseCar;
 
@@ -139,6 +140,10 @@ namespace DemoBuilder
     public class CarBaseBuilder : CarBuilderFacade, ICarBaseBuilder
     {
         public override ICarBase BaseCar { get; set; }
+
+        public CarBaseBuilder(IReadOnlyDictionary<Type, ICarBuilderFacade> builders) : base(builders)
+        {
+        }
 
         public ICarBaseBuilder AddBranch()
         {
@@ -164,6 +169,10 @@ namespace DemoBuilder
         public override ICarBase BaseCar { get; set; }
         protected ISideDoor Car => BaseCar as ISideDoor;
 
+        public SideDoorBuilder(IReadOnlyDictionary<Type, ICarBuilderFacade> builders) : base(builders)
+        {
+        }
+
         public ISideDoorBuilder SetDoorSize()
         {
             Car.DoorSize = "Big";
@@ -175,6 +184,10 @@ namespace DemoBuilder
     {
         public override ICarBase BaseCar { get; set; }
         protected IChassis Car => BaseCar as IChassis;
+
+        public ChassisBuilder(IReadOnlyDictionary<Type, ICarBuilderFacade> builders) : base(builders)
+        {
+        }
 
         public IChassisBuilder SetChassisSize()
         {
