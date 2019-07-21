@@ -138,12 +138,13 @@ namespace DemoBuilder
     {
         private readonly IReadOnlyDictionary<Type, ICarBuilderFacade> _builders;
         public virtual ICarBase BaseCar { get; set; }
-        public ICarBase Build() => BaseCar;
 
-        public CarBuilderFacade(IReadOnlyDictionary<Type, ICarBuilderFacade> builders)
+        protected CarBuilderFacade(IReadOnlyDictionary<Type, ICarBuilderFacade> builders)
         {
             _builders = builders;
         }
+
+        public ICarBase Build() => BaseCar;
 
         public T GetBuilder<T>(ICarBase carBase = null) where T : class, ICarBuilderFacade
         {
@@ -160,8 +161,6 @@ namespace DemoBuilder
 
     public class CarBaseBuilder : CarBuilderFacade, ICarBaseBuilder
     {
-        public override ICarBase BaseCar { get; set; }
-
         public CarBaseBuilder(IReadOnlyDictionary<Type, ICarBuilderFacade> builders) : base(builders)
         {
         }
@@ -187,7 +186,6 @@ namespace DemoBuilder
 
     public class SideDoorBuilder : CarBuilderFacade, ISideDoorBuilder
     {
-        public override ICarBase BaseCar { get; set; }
         protected ISideDoor Car => BaseCar as ISideDoor;
 
         public SideDoorBuilder(IReadOnlyDictionary<Type, ICarBuilderFacade> builders) : base(builders)
@@ -203,7 +201,6 @@ namespace DemoBuilder
 
     public class ChassisBuilder : CarBuilderFacade, IChassisBuilder
     {
-        public override ICarBase BaseCar { get; set; }
         protected IChassis Car => BaseCar as IChassis;
 
         public ChassisBuilder(IReadOnlyDictionary<Type, ICarBuilderFacade> builders) : base(builders)
@@ -219,7 +216,6 @@ namespace DemoBuilder
 
     public class FrontGlassBuilder : CarBuilderFacade, IFrontGlassBuilder
     {
-        public override ICarBase BaseCar { get; set; }
         protected IFrontGlass Car => BaseCar as IFrontGlass;
 
         public FrontGlassBuilder(IReadOnlyDictionary<Type, ICarBuilderFacade> builders) : base(builders)
