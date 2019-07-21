@@ -1,6 +1,7 @@
 ﻿using Autofac;
 using Newtonsoft.Json;
 using System;
+using System.Collections.Generic;
 
 namespace DemoBuilder
 {
@@ -14,18 +15,17 @@ namespace DemoBuilder
             {
                 var carBuilder = scope.Resolve<ICarBuilderFacade>();
 
-                carBuilder.BaseCar = new HybridCar();
+                var car = carBuilder.GetBuilder<ICarBaseBuilder>(new HybridCar())
+                    .AddBranch().AddColor().AddType()
+                    .GetBuilder<ISideDoorBuilder>()
+                    .SetDoorSize()
+                    .GetBuilder<IChassisBuilder>()
+                    .SetChassisSize()
+                    .Build();
 
-                var car = carBuilder
-                    .Base.AddBranch().AddColor().AddType()
-                    .SideDoor.SetDoorSize()
-                    .Chassis.SetChassisSize().Build();
-
-                carBuilder.BaseCar = new CarNoDoor();
-
-                var carNoDoor = carBuilder
-                    .Base.AddBranch().AddColor().AddType()
-                    .Chassis.SetChassisSize()
+                var carNoDoor = carBuilder.GetBuilder<ICarBaseBuilder>(new CarNoDoor())
+                    .AddBranch().AddColor().AddType()
+                    .GetBuilder<IChassisBuilder>().SetChassisSize()
                     .Build();
 
                 Console.WriteLine(JsonConvert.SerializeObject(car));
@@ -103,44 +103,36 @@ namespace DemoBuilder
     public interface ICarBuilderFacade
     {
         ICarBase BaseCar { get; set; }
-        ICarBaseBuilder Base { get; }
-        ISideDoorBuilder SideDoor { get; }
-        IChassisBuilder Chassis { get; }
-
         ICarBase Build();
+        T GetBuilder<T>(ICarBase carBase = null) where T : class, ICarBuilderFacade;
     }
 
     public class CarBuilderFacade : ICarBuilderFacade
     {
+        private readonly IDictionary<Type, Func<ICarBuilderFacade>> _builders;
         public virtual ICarBase BaseCar { get; set; }
-
         public ICarBase Build() => BaseCar;
 
-        public ICarBaseBuilder Base
+        public CarBuilderFacade()
         {
-            get
+            _builders = new Dictionary<Type, Func<ICarBuilderFacade>>
             {
-                var builder = new CarBaseBuilder { BaseCar = BaseCar };
-                return builder;
-            }
+                { typeof(ICarBaseBuilder), () => new CarBaseBuilder()},
+                { typeof(ISideDoorBuilder), () => new SideDoorBuilder()},
+                { typeof(IChassisBuilder), () => new ChassisBuilder()}
+            };
         }
 
-        public ISideDoorBuilder SideDoor
+        public T GetBuilder<T>(ICarBase carBase = null) where T : class, ICarBuilderFacade
         {
-            get
+            if (_builders[typeof(T)]() is T builder)
             {
-                var builder = new SideDoorBuilder { BaseCar = BaseCar as ISideDoor };
-                return builder;
-            }
-        }
+                builder.BaseCar = carBase ?? BaseCar;
 
-        public IChassisBuilder Chassis
-        {
-            get
-            {
-                var builder = new ChassisBuilder { BaseCar = BaseCar as IChassis };
                 return builder;
             }
+
+            return null;
         }
     }
 
