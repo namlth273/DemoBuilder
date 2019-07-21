@@ -2,6 +2,7 @@
 using Newtonsoft.Json;
 using System;
 using System.Collections.Generic;
+using System.Linq;
 
 namespace DemoBuilder
 {
@@ -21,14 +22,18 @@ namespace DemoBuilder
                     .SetDoorSize()
                     .GetBuilder<IChassisBuilder>()
                     .SetChassisSize()
+                    .GetBuilder<IFrontGlassBuilder>()
+                    .SetTransparentLevel()
                     .Build();
 
-                var carNoDoor = carBuilder.GetBuilder<ICarBaseBuilder>(new CarNoDoor())
-                    .AddBranch().AddColor().AddType()
-                    .GetBuilder<IChassisBuilder>().SetChassisSize()
-                    .Build();
+                var carNoDoorFactory = scope.Resolve<ICarFactory<CarNoDoor>>();
+                var hybridCarFactory = scope.Resolve<ICarFactory<HybridCar>>();
+
+                var carNoDoor = carNoDoorFactory.CreateObject();
+                var hybridCar = hybridCarFactory.CreateObject();
 
                 Console.WriteLine(JsonConvert.SerializeObject(car));
+                Console.WriteLine(JsonConvert.SerializeObject(hybridCar));
                 Console.WriteLine(JsonConvert.SerializeObject(carNoDoor));
             }
         }
@@ -50,8 +55,13 @@ namespace DemoBuilder
             builder.RegisterType<CarBaseBuilder>().As<ICarBuilderFacade>().Keyed<ICarBuilderFacade>(typeof(ICarBaseBuilder));
             builder.RegisterType<SideDoorBuilder>().As<ICarBuilderFacade>().Keyed<ICarBuilderFacade>(typeof(ISideDoorBuilder));
             builder.RegisterType<ChassisBuilder>().As<ICarBuilderFacade>().Keyed<ICarBuilderFacade>(typeof(IChassisBuilder));
+            builder.RegisterType<FrontGlassBuilder>().As<ICarBuilderFacade>().Keyed<ICarBuilderFacade>(typeof(IFrontGlassBuilder));
 
             builder.RegisterGeneric(typeof(DependencyDictionary<,>)).As(typeof(IReadOnlyDictionary<,>)).SingleInstance();
+
+            builder.RegisterAssemblyTypes(ThisAssembly)
+                .Where(w => w.GetInterfaces().Any(a => a.IsClosedTypeOf(typeof(ICarFactory<>))))
+                .AsImplementedInterfaces();
         }
     }
 
@@ -72,6 +82,11 @@ namespace DemoBuilder
         string ChassisSize { get; set; }
     }
 
+    public interface IFrontGlass
+    {
+        string TransparentLevel { get; set; }
+    }
+
     public class CarNoDoor : IChassis
     {
         public string Branch { get; set; }
@@ -80,13 +95,14 @@ namespace DemoBuilder
         public string ChassisSize { get; set; }
     }
 
-    public class HybridCar : ISideDoor, IChassis
+    public class HybridCar : ISideDoor, IChassis, IFrontGlass
     {
         public string Branch { get; set; }
         public string Type { get; set; }
         public string Color { get; set; }
         public string DoorSize { get; set; }
         public string ChassisSize { get; set; }
+        public string TransparentLevel { get; set; }
     }
 
     public interface ICarBaseBuilder : ICarBuilderFacade
@@ -104,6 +120,11 @@ namespace DemoBuilder
     public interface IChassisBuilder : ICarBuilderFacade
     {
         IChassisBuilder SetChassisSize();
+    }
+
+    public interface IFrontGlassBuilder : ICarBuilderFacade
+    {
+        IFrontGlassBuilder SetTransparentLevel();
     }
 
     public interface ICarBuilderFacade
@@ -192,6 +213,22 @@ namespace DemoBuilder
         public IChassisBuilder SetChassisSize()
         {
             Car.ChassisSize = "Big";
+            return this;
+        }
+    }
+
+    public class FrontGlassBuilder : CarBuilderFacade, IFrontGlassBuilder
+    {
+        public override ICarBase BaseCar { get; set; }
+        protected IFrontGlass Car => BaseCar as IFrontGlass;
+
+        public FrontGlassBuilder(IReadOnlyDictionary<Type, ICarBuilderFacade> builders) : base(builders)
+        {
+        }
+
+        public IFrontGlassBuilder SetTransparentLevel()
+        {
+            Car.TransparentLevel = "Dark Smoke";
             return this;
         }
     }
