@@ -1,14 +1,20 @@
 ﻿using Autofac;
+using Autofac.Extensions.DependencyInjection;
+using Microsoft.Extensions.DependencyInjection;
 using Newtonsoft.Json;
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Net;
+using System.Net.Http;
+using System.Threading.Tasks;
 
 namespace DemoBuilder
 {
     class Program
     {
-        static void Main(string[] args)
+        static void Main(string[] args) => MainAsync(args).GetAwaiter().GetResult();
+        static async Task MainAsync(string[] args)
         {
             var container = ConfigureContainer();
 
@@ -35,15 +41,44 @@ namespace DemoBuilder
                 Console.WriteLine(JsonConvert.SerializeObject(car));
                 Console.WriteLine(JsonConvert.SerializeObject(hybridCar));
                 Console.WriteLine(JsonConvert.SerializeObject(carNoDoor));
+
+                var clientFactory = scope.Resolve<IHttpClientFactory>();
+
+                var client = clientFactory.CreateClient("DemoClient");
+
+                var request = new HttpRequestMessage(HttpMethod.Post, "/api/product/getall1");
+
+                var response = await client.SendAsync(request);
+
+                await response.EnsureSuccessStatusCodeAsync();
+
+                var products = await response.Content.ReadAsAsync<IList<Product>>();
+
+                Console.WriteLine(JsonConvert.SerializeObject(products, Formatting.Indented));
             }
         }
 
         static IContainer ConfigureContainer()
         {
+            var services = new ServiceCollection();
+            services.AddHttpClient("DemoClient", client =>
+            {
+                client.BaseAddress = new Uri("http://localhost:8002/");
+                client.DefaultRequestHeaders.Add("Accept", "application/json");
+            });
+
             var builder = new ContainerBuilder();
+            builder.Populate(services);
             builder.RegisterModule<AutofacModule>();
             return builder.Build();
         }
+    }
+
+    public class Product
+    {
+        public Guid Id { get; set; }
+        public string Name { get; set; }
+        public string Description { get; set; }
     }
 
     public class AutofacModule : Module
@@ -226,6 +261,45 @@ namespace DemoBuilder
         {
             Car.TransparentLevel = "Dark Smoke";
             return this;
+        }
+    }
+
+    public static class HttpResponseMessageExtensions
+    {
+        public static async Task EnsureSuccessStatusCodeAsync(this HttpResponseMessage response)
+        {
+            if (response.IsSuccessStatusCode)
+            {
+                return;
+            }
+
+            var content = await response.Content.ReadAsStringAsync();
+
+            response.Content?.Dispose();
+
+            if (string.IsNullOrEmpty(content))
+            {
+                try
+                {
+                    response.EnsureSuccessStatusCode();
+                }
+                catch (Exception exception)
+                {
+                    content = exception.Message;
+                }
+            }
+
+            throw new SimpleHttpResponseException(response.StatusCode, content);
+        }
+    }
+
+    public class SimpleHttpResponseException : Exception
+    {
+        public HttpStatusCode StatusCode { get; }
+
+        public SimpleHttpResponseException(HttpStatusCode statusCode, string content) : base(content)
+        {
+            StatusCode = statusCode;
         }
     }
 }
