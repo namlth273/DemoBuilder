@@ -4,7 +4,6 @@ using DemoBuilder.Services;
 using Microsoft.Extensions.DependencyInjection;
 using System;
 using System.Collections.Generic;
-using System.Linq;
 using System.Net.Http;
 using System.Threading.Tasks;
 
@@ -71,51 +70,17 @@ namespace DemoBuilder
             var services = new ServiceCollection();
             services.AddHttpClient<IDemoClient, DemoClient>((serviceProvider, client) =>
             {
-
-                var configService = serviceProvider.GetRequiredService<IConfigurationService>();
-
-                var baseUri = new Uri(configService.GetConfiguration()["BASE_URL"]);
-
-                //client.BaseAddress = new Uri("http://localhost:8002/");
-                //client.BaseAddress = new Uri("https://jsonplaceholder.typicode.com/");
+                var config = serviceProvider.GetRequiredService<IConfigurationService>().GetConfiguration();
+                var baseUri = new Uri(config["BASE_URL"]);
 
                 client.BaseAddress = new Uri(baseUri.ToString());
-                client.DefaultRequestHeaders.Add("Accept", "application/json");
+                //client.DefaultRequestHeaders.Add("Accept", "application/json");
             });
 
             var builder = new ContainerBuilder();
             builder.Populate(services);
             builder.RegisterModule<AutofacModule>();
             return builder.Build();
-        }
-    }
-
-    public class Product
-    {
-        public Guid Id { get; set; }
-        public string Name { get; set; }
-        public string Description { get; set; }
-    }
-
-    public class AutofacModule : Module
-    {
-        protected override void Load(ContainerBuilder builder)
-        {
-            builder.RegisterType<CarBuilderFacade>().As<ICarBuilderFacade>();
-
-            builder.RegisterType<CarBaseBuilder>().As<ICarBuilderFacade>().Keyed<ICarBuilderFacade>(typeof(ICarBaseBuilder));
-            builder.RegisterType<SideDoorBuilder>().As<ICarBuilderFacade>().Keyed<ICarBuilderFacade>(typeof(ISideDoorBuilder));
-            builder.RegisterType<ChassisBuilder>().As<ICarBuilderFacade>().Keyed<ICarBuilderFacade>(typeof(IChassisBuilder));
-            builder.RegisterType<FrontGlassBuilder>().As<ICarBuilderFacade>().Keyed<ICarBuilderFacade>(typeof(IFrontGlassBuilder));
-
-            builder.RegisterGeneric(typeof(DependencyDictionary<,>)).As(typeof(IReadOnlyDictionary<,>)).SingleInstance();
-
-            builder.RegisterAssemblyTypes(ThisAssembly)
-                .Where(w => w.GetInterfaces().Any(a => a.IsClosedTypeOf(typeof(ICarFactory<>))))
-                .AsImplementedInterfaces();
-
-            builder.RegisterType<ConfigurationService>().As<IConfigurationService>();
-            builder.RegisterType<EnvironmentService>().As<IEnvironmentService>();
         }
     }
 
