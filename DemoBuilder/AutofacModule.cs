@@ -1,5 +1,6 @@
 ﻿using Autofac;
 using DemoBuilder.Services;
+using Flurl.Http.Configuration;
 using System.Collections.Generic;
 using System.Linq;
 
@@ -23,6 +24,9 @@ namespace DemoBuilder
             builder.RegisterAssemblyTypes(ThisAssembly)
                 .Where(w => w.GetInterfaces().Any(a => a.IsClosedTypeOf(typeof(ICarFactory<>))))
                 .AsImplementedInterfaces();
+
+            builder.RegisterType<PerBaseUrlFlurlClientFactory>().As<IFlurlClientFactory>().SingleInstance();
+            builder.RegisterType<DemoFlurlClient>().As<IDemoFlurlClient>();
         }
     }
 }
