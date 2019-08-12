@@ -12,7 +12,11 @@ Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Solution Items", "Solution 
 EndProject
 Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "DemoUnitTest", "DemoUnitTest\DemoUnitTest.csproj", "{CE517A03-22AB-4A07-96F5-2B574BBC37A3}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "StubServer", "StubServer\StubServer.csproj", "{10E2C149-5DAE-4645-8248-71B26B1ABE09}"
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "StubServer", "StubServer\StubServer.csproj", "{10E2C149-5DAE-4645-8248-71B26B1ABE09}"
+EndProject
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "WireMock.Net", "..\..\Projects\WireMock.Net\src\WireMock.Net\WireMock.Net.csproj", "{D3804228-91F4-4502-9595-39584E5A01AD}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "ĐemoMultiThread", "ĐemoMultiThread\ĐemoMultiThread.csproj", "{DCFBE824-48E6-4957-A22D-92693DDA0D2B}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
@@ -32,6 +36,14 @@ Global
 		{10E2C149-5DAE-4645-8248-71B26B1ABE09}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{10E2C149-5DAE-4645-8248-71B26B1ABE09}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{10E2C149-5DAE-4645-8248-71B26B1ABE09}.Release|Any CPU.Build.0 = Release|Any CPU
+		{D3804228-91F4-4502-9595-39584E5A01AD}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{D3804228-91F4-4502-9595-39584E5A01AD}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{D3804228-91F4-4502-9595-39584E5A01AD}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{D3804228-91F4-4502-9595-39584E5A01AD}.Release|Any CPU.Build.0 = Release|Any CPU
+		{DCFBE824-48E6-4957-A22D-92693DDA0D2B}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{DCFBE824-48E6-4957-A22D-92693DDA0D2B}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{DCFBE824-48E6-4957-A22D-92693DDA0D2B}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{DCFBE824-48E6-4957-A22D-92693DDA0D2B}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE

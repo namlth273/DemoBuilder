@@ -5,6 +5,8 @@ using Newtonsoft.Json.Serialization;
 using NUnit.Framework;
 using Shouldly;
 using System;
+using System.Collections.Generic;
+using System.IO;
 using System.Linq;
 using System.Net;
 using System.Net.Http;
@@ -13,6 +15,7 @@ using WireMock.Matchers;
 using WireMock.RequestBuilders;
 using WireMock.ResponseBuilders;
 using WireMock.Server;
+using WireMock.Settings;
 
 namespace DemoUnitTest
 {
@@ -33,7 +36,12 @@ namespace DemoUnitTest
                 ContractResolver = new CamelCasePropertyNamesContractResolver()
             };
 
-            _server = FluentMockServer.Start();
+            _server = FluentMockServer.Start(new FluentMockServerSettings
+            {
+                Urls = new[] { "http://localhost:5001" },
+                StartAdminInterface = false,
+                ReadStaticMappings = false,
+            });
         }
 
         [SetUp]
@@ -42,6 +50,11 @@ namespace DemoUnitTest
             _fixture = new Fixture();
 
             _server.Reset();
+
+            var path = Path.Combine(Directory.GetParent(Environment.CurrentDirectory).Parent.Parent.FullName,
+                "mappings");
+
+            _server.ReadStaticMappings(path);
 
             _client = new HttpClient
             {
@@ -105,6 +118,18 @@ namespace DemoUnitTest
             var exception = Assert.ThrowsAsync<NotFoundException>(() => _demoClient.SendAsync<Product>(_request));
 
             exception.StatusCode.ShouldBe(HttpStatusCode.NotFound);
+        }
+
+        [Test]
+        public async Task TestComment()
+        {
+            var request = new HttpRequestMessage(HttpMethod.Get, new Uri(_server.Urls.First() + "/comments?postId=1"));
+
+            var mapping = _server.Mappings.First(w => w.Title == "namlth");
+
+            var response = await _demoClient.SendAsync<IList<dynamic>>(request);
+
+            response.ShouldNotBeNull();
         }
 
         [OneTimeTearDown]
