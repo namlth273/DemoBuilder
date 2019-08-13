@@ -1,4 +1,7 @@
 ﻿using Autofac;
+using Autofac.Extensions.DependencyInjection;
+using Microsoft.Extensions.Caching.Memory;
+using Microsoft.Extensions.DependencyInjection;
 using System;
 using System.Threading;
 using System.Threading.Tasks;
@@ -13,7 +16,13 @@ namespace ĐemoMultiThread
 
         static void Main(string[] args)
         {
+            var services = new ServiceCollection();
+
+            services.AddMemoryCache();
+
             var builder = new ContainerBuilder();
+
+            builder.Populate(services);
 
             builder.RegisterModule<AutofacModule>();
 
@@ -21,6 +30,13 @@ namespace ĐemoMultiThread
 
             using (var scope = container.BeginLifetimeScope())
             {
+                var cache = scope.Resolve<IMemoryCache>();
+
+                using (var entry = cache.CreateEntry("TaskPool"))
+                {
+                    entry.Value =new TaskPool(2);
+                }
+
                 var publisher = scope.Resolve<Publisher>();
 
                 var source = new CancellationTokenSource();

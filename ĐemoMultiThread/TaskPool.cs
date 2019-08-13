@@ -76,13 +76,14 @@ namespace ĐemoMultiThread
         /// Adds a task and runs it if free thread exists. Otherwise enqueue.
         /// </summary>
         /// <param name="task">The task that will be execute</param>
-        public Task Enqueue(Func<Task> task)
+        /// <param name="waitUntilStart">Task will be enqueue and not running yet.</param>
+        public Task EnqueueAsync(Func<Task> task, bool waitUntilStart = false)
         {
             lock (_tasksMutex)
             {
                 var holder = new InternalTaskHolder { Task = task, Waiter = new TaskCompletionSource<IDisposable>() };
 
-                if (WorkingTasks.Count >= _threadsMaxCount)
+                if (waitUntilStart || WorkingTasks.Count >= _threadsMaxCount)
                     DefaultQueue.Enqueue(holder);
                 else
                     StartTask(holder);
@@ -96,7 +97,7 @@ namespace ĐemoMultiThread
         /// Adds a task and runs it if free thread exists. Otherwise enqueue.
         /// </summary>
         /// <param name="task">The task that will be execute</param>
-        public Task<T> Enqueue<T>(Func<Task<T>> task)
+        public Task<T> EnqueueAsync<T>(Func<Task<T>> task)
         {
             lock (_tasksMutex)
             {
@@ -111,6 +112,11 @@ namespace ĐemoMultiThread
             }
         }
 
+        public async Task StartTaskAsync()
+        {
+            await CheckQueueAsync();
+        }
+
         /// <summary>
         /// Starts the execution of a task.
         /// </summary>
@@ -119,31 +125,35 @@ namespace ĐemoMultiThread
         {
             WorkingTasks.Add(task);
             await task.Execute();
-            TaskCompleted(task);
+            await TaskCompletedAsync(task);
         }
 
-        private void TaskCompleted(IInternalTask task)
+        private Task TaskCompletedAsync(IInternalTask task)
         {
             lock (_tasksMutex)
             {
                 WorkingTasks.Remove(task);
 
-                CheckQueue();
+                CheckQueueAsync();
 
                 if (DefaultQueue.Count == 0 && WorkingTasks.Count == 0)
                     OnCompleted();
             }
+
+            return Task.CompletedTask;
         }
 
         /// <summary>
         /// Checks if the queue contains tasks and runs as many as there are free execution slots.
         /// </summary>
-        private void CheckQueue()
+        private Task CheckQueueAsync()
         {
             lock (_checkMutex)
                 while (DefaultQueue.Count > 0 && WorkingTasks.Count < _threadsMaxCount)
                     if (DefaultQueue.TryDequeue(out IInternalTask task))
                         StartTask(task);
+
+            return Task.CompletedTask;
         }
 
         /// <summary>
