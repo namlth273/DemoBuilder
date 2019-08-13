@@ -1,9 +1,5 @@
 ﻿using Autofac;
-using MediatR;
-using MediatR.Extensions.Autofac.DependencyInjection;
-using Microsoft.Extensions.Primitives;
 using System;
-using System.Collections.Generic;
 using System.Threading;
 using System.Threading.Tasks;
 
@@ -11,6 +7,10 @@ namespace ĐemoMultiThread
 {
     class Program
     {
+        static int _numCurrentThreads = 0;
+
+        static readonly Random Rnd = new Random();
+
         static void Main(string[] args)
         {
             var builder = new ContainerBuilder();
@@ -25,7 +25,7 @@ namespace ĐemoMultiThread
 
                 var source = new CancellationTokenSource();
 
-                var changeToken = new CancellationChangeToken(source.Token);
+                //var changeToken = new CancellationChangeToken(source.Token);
 
                 //var compositeChangeToken =
                 //    new CompositeChangeToken(
@@ -36,81 +36,78 @@ namespace ĐemoMultiThread
 
                 //compositeChangeToken.RegisterChangeCallback(Console.WriteLine, source);
 
-                publisher.Publish(new TestMultiThread.SendMessage
+                //publisher.Publish(new TestMultiThread.Command
+                //{
+                //    TokenSource = source,
+                //    Id = Guid.NewGuid()
+                //}, PublishStrategy.ParallelWhenAll, source.Token);
+
+                var innerTokenSource = new CancellationTokenSource();
+
+                publisher.Publish(new TestWorkerPool.Command
                 {
-                    TokenSource = source,
+                    //TokenSource = innerTokenSource,
                     Id = Guid.NewGuid()
                 }, PublishStrategy.ParallelWhenAll, source.Token);
 
                 Console.WriteLine("Press any key to cancel tasks");
                 Console.ReadLine();
-                Console.WriteLine(source.IsCancellationRequested);
+                innerTokenSource.Cancel(false);
+                Console.WriteLine("IsCancellationRequested " + source.IsCancellationRequested);
                 Console.ReadLine();
             }
-        }
-    }
 
-    public class AutofacModule : Module
-    {
-        protected override void Load(ContainerBuilder builder)
-        {
-            builder.AddMediatR(ThisAssembly);
-            builder.RegisterType<Publisher>().SingleInstance();
-        }
-    }
+            //int maxParallelTasks = 4;
+            //int totalTasks = 10;
 
-    public class TestMultiThread
-    {
-        public class SendMessage : INotification
-        {
-            public CancellationTokenSource TokenSource { get; set; }
-            public Guid Id { get; set; }
-        }
+            //using (var blockingCounter = new BlockingCounter(maxParallelTasks))
+            //{
+            //    for (int i = 1; i <= totalTasks; i++)
+            //    {
+            //        Console.WriteLine("Submitting task {0}", i);
+            //        blockingCounter.WaitableIncrement();
+            //        if (!ThreadPool.QueueUserWorkItem((obj) =>
+            //        {
+            //            try
+            //            {
+            //                ThreadProc(obj);
+            //            }
+            //            catch (Exception ex)
+            //            {
+            //                Console.Error.WriteLine("Task {0} failed: {1}", obj, ex.Message);
+            //            }
+            //            finally
+            //            {
+            //                // Exceptions are possible here too, 
+            //                // but proper error handling is not the goal of this sample
+            //                blockingCounter.WaitableDecrement();
+            //            }
+            //        }, i))
+            //        {
+            //            blockingCounter.WaitableDecrement();
+            //            Console.Error.WriteLine("Failed to submit task {0} for execution.", i);
+            //        }
+            //    }
 
-        public class SaveMessageNotificationHandler : INotificationHandler<SendMessage>
-        {
-            public async Task Handle(SendMessage notification, CancellationToken cancellationToken)
-            {
-                cancellationToken.Register(() =>
-                {
-                    Console.WriteLine("================SaveMessageNotificationHandler cancelling...");
-                });
+            //    Console.WriteLine("Waiting for copmletion...");
+            //    blockingCounter.CloseAndWait(30000);
+            //}
 
-                var count = 0;
-                do
-                {
-                    count++;
-
-                    Console.WriteLine("Saving message... " + count + " | ThreadId " + Thread.CurrentThread.ManagedThreadId);
-                    await Task.Delay(TimeSpan.FromSeconds(3), cancellationToken);
-
-                    if (count == 5)
-                    {
-                        notification.TokenSource.Cancel();
-                    }
-                } while (true);
-            }
+            //Console.WriteLine("Work done!");
+            //Console.ReadKey();
         }
 
-        public class UpdateMessageNotificationHandler : INotificationHandler<SendMessage>
+        static void ThreadProc(object obj)
         {
-            public async Task Handle(SendMessage notification, CancellationToken cancellationToken)
-            {
-                cancellationToken.Register(() =>
-                {
-                    Console.WriteLine("================UpdateMessageNotificationHandler cancelling...");
-                });
+            int taskNumber = (int)obj;
+            int numThreads = Interlocked.Increment(ref _numCurrentThreads);
 
-                await Task.Delay(TimeSpan.FromSeconds(1), cancellationToken);
+            Console.WriteLine("Task {0} started. Total: {1}", taskNumber, numThreads);
+            int sleepTime = Rnd.Next(0, 5);
+            Task.Delay(sleepTime * 1000);
+            Console.WriteLine("Task {0} finished.", taskNumber);
 
-                var count = 1;
-                do
-                {
-                    Console.WriteLine("Updating message... " + count + " | ThreadId " + Thread.CurrentThread.ManagedThreadId);
-                    await Task.Delay(TimeSpan.FromSeconds(2), cancellationToken);
-                    count++;
-                } while (true);
-            }
+            Interlocked.Decrement(ref _numCurrentThreads);
         }
     }
 }
