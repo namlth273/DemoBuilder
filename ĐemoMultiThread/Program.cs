@@ -34,7 +34,7 @@ namespace ĐemoMultiThread
 
                 using (var entry = cache.CreateEntry("TaskPool"))
                 {
-                    entry.Value =new TaskPool(2);
+                    entry.Value = new TaskPool(6);
                 }
 
                 var publisher = scope.Resolve<Publisher>();
@@ -68,7 +68,8 @@ namespace ĐemoMultiThread
 
                 Console.WriteLine("Press any key to cancel tasks");
                 Console.ReadLine();
-                innerTokenSource.Cancel(false);
+                source.Cancel();
+                //innerTokenSource.Cancel(false);
                 Console.WriteLine("IsCancellationRequested " + source.IsCancellationRequested);
                 Console.ReadLine();
             }

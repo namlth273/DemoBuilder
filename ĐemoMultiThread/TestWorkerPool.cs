@@ -21,32 +21,85 @@ namespace ĐemoMultiThread
             public AddTaskNotificationHandler(IMemoryCache cache)
             {
                 cache.TryGetValue("TaskPool", out _taskPool);
+
+                _taskPool.Available += async (sender, args) =>
+                {
+                    var random = new Random().Next(1, 3);
+
+                    var builder = new StringBuilder()
+                        .AppendStartDate()
+                        .AppendWithSeparator("There is 1 slot available...............................")
+                        .AppendCount(_taskPool);
+
+                    await Task.Delay(TimeSpan.FromSeconds(random));
+
+                    if (random == 1)
+                        await _taskPool.EnqueueAsync(LongRunningTask);
+
+                    if (_taskPool.WorkingTasks.Count < 3)
+                    {
+                        do
+                        {
+                            await _taskPool.EnqueueAsync(LongRunningTask);
+                        } while (_taskPool.WorkingTasks.Count < 6);
+                    }
+
+                    builder
+                        .AppendStartDate()
+                        .AppendWithSeparator("1 task enqueue")
+                        .AppendWithSeparator("Random delay time " + random)
+                        .AppendWithSeparator("End Date " + DateTime.Now.ToString("mm:ss:fff"))
+                        .AppendCount(_taskPool);
+
+                    Console.WriteLine(builder.ToString());
+                };
             }
 
             public async Task Handle(Command notification, CancellationToken cancellationToken)
             {
                 do
                 {
-                    var random = new Random().Next(2, 5);
+                    var random = new Random().Next(1, 2);
+
+                    if (_taskPool.DefaultQueue.Count == 6)
+                    {
+                        break;
+
+                        //await Task.Delay(TimeSpan.FromSeconds(random), cancellationToken);
+
+                        //continue;
+                    }
+
                     await _taskPool.EnqueueAsync(LongRunningTask, true);
-                    Console.WriteLine("1 task enqueue | Count " + _taskPool.DefaultQueue.Count + " | Random delay time " + random);
+
+                    var builder = new StringBuilder()
+                        .AppendStartDate()
+                        .AppendWithSeparator("1 task enqueue")
+                        .AppendWithSeparator("Random delay time " + random)
+                        .AppendWithSeparator("End Date " + DateTime.Now.ToString("mm:ss:fff"))
+                        .AppendCount(_taskPool);
+
+                    Console.WriteLine(builder.ToString());
+
                     await Task.Delay(TimeSpan.FromSeconds(random), cancellationToken);
                 } while (true);
             }
 
             private async Task LongRunningTask()
             {
-                var random = new Random().Next(1, 3);
+                var random = new Random().Next(5, 12);
 
-                var builder = new StringBuilder("Thread Id " + Thread.CurrentThread.ManagedThreadId.ToString("00"))
-                    .Append(" | ")
-                    .Append("Long task running... | RandomNumber " + random)
-                    .Append(" | ")
-                    .Append(DateTime.Now)
-                    .Append(" | ")
-                    .Append("Done with no enqueue. Queue count " + _taskPool.DefaultQueue.Count);
+                var builder = new StringBuilder()
+                    .AppendStartDate()
+                    .AppendWithSeparator("Thread Id " + Thread.CurrentThread.ManagedThreadId.ToString("00"))
+                    .AppendWithSeparator("Long task running...............................")
+                    .AppendWithSeparator("Sleep time " + random);
 
-                await Task.Delay(TimeSpan.FromSeconds(2));
+                await Task.Delay(TimeSpan.FromSeconds(random));
+
+                builder
+                    .AppendWithSeparator("End Date " + DateTime.Now.ToString("mm:ss:fff"))
+                    .AppendCount(_taskPool);
 
                 Console.WriteLine(builder.ToString());
             }
@@ -55,7 +108,7 @@ namespace ĐemoMultiThread
         public class NotificationHandler : INotificationHandler<Command>
         {
             private readonly TaskPool _taskPool;
-            private readonly CancellationTokenSource _source;
+            private CancellationTokenSource _source;
 
             public NotificationHandler(IMemoryCache cache)
             {
@@ -71,27 +124,39 @@ namespace ĐemoMultiThread
 
             public async Task Handle(Command notification, CancellationToken cancellationToken)
             {
-                await Task.Delay(TimeSpan.FromSeconds(5), cancellationToken);
+                await Task.Delay(TimeSpan.FromSeconds(7), cancellationToken);
 
                 do
                 {
+                    var id = Guid.NewGuid();
+
+                    var builder = new StringBuilder()
+                        .AppendStartDate()
+                        .AppendWithSeparator("StartTaskAsync")
+                        .AppendWithSeparator("Id " + id)
+                        .AppendCount(_taskPool);
+
+                    Console.WriteLine(builder.ToString());
+
                     await _taskPool.StartTaskAsync();
 
                     await RunUntilCancellation(async () =>
                     {
-                        Console.WriteLine("There is no task in queue, this process will be sleep in 5 seconds before try dequeuing again... Thread Id " + Thread.CurrentThread.ManagedThreadId);
-                        await Task.Delay(TimeSpan.FromSeconds(5), cancellationToken);
+                        var runBuilder = new StringBuilder()
+                            .AppendStartDate()
+                            .AppendWithSeparator("There is no task in queue")
+                            .AppendWithSeparator("Thread Id " + Thread.CurrentThread.ManagedThreadId)
+                            .AppendWithSeparator("Id " + id)
+                            .AppendCount(_taskPool);
+
+                        Console.WriteLine(runBuilder.ToString());
+                        await Task.Delay(TimeSpan.FromSeconds(10), cancellationToken);
+
+                        _source = new CancellationTokenSource();
                     }, _source.Token);
 
                 } while (true);
             }
-
-            //public async Task AddTasks()
-            //{
-            //    await _taskPool.EnqueueAsync(LongRunningTask);
-
-            //    await Task.Delay(TimeSpan.FromSeconds(5));
-            //}
 
             public async Task RunUntilCancellation(Func<Task> onCancel, CancellationToken cancellationToken)
             {
@@ -106,32 +171,28 @@ namespace ĐemoMultiThread
 
                 await doneReceiving.Task.ConfigureAwait(false); // Listen until quit signal is received.
             }
+        }
+    }
 
-            //private async Task LongRunningTask()
-            //{
-            //    var random = new Random().Next(1, 3);
+    public static class StringBuilderExtensions
+    {
+        public static StringBuilder AppendWithSeparator(this StringBuilder builder, string value)
+        {
+            builder.Append(value).Append(" | ");
+            return builder;
+        }
 
-            //    var builder = new StringBuilder("Thread Id " + Thread.CurrentThread.ManagedThreadId.ToString("00"))
-            //        .Append(" | ")
-            //        .Append("Long task running... | RandomNumber " + random)
-            //        .Append(" | ")
-            //        .Append(DateTime.Now)
-            //        .Append(" | ");
+        public static StringBuilder AppendCount(this StringBuilder builder, TaskPool taskPool)
+        {
+            builder.AppendWithSeparator("Queue count " + taskPool.DefaultQueue.Count)
+                .AppendWithSeparator("WorkingTasks count " + taskPool.WorkingTasks.Count);
+            return builder;
+        }
 
-            //    if (random == 2)`
-            //    {
-            //        await _taskPool.EnqueueAsync(LongRunningTask);
-            //        await _taskPool.EnqueueAsync(LongRunningTask);
-            //        await _taskPool.EnqueueAsync(LongRunningTask);
-            //        builder.Append("Done with enqueue   . Queue count " + _taskPool.DefaultQueue.Count);
-            //    }
-            //    else
-            //        builder.Append("Done with no enqueue. Queue count " + _taskPool.DefaultQueue.Count);
-
-            //    await Task.Delay(TimeSpan.FromSeconds(1));
-
-            //    Console.WriteLine(builder.ToString());
-            //}
+        public static StringBuilder AppendStartDate(this StringBuilder builder)
+        {
+            builder.AppendWithSeparator("Time " + DateTime.Now.ToString("mm:ss:fff"));
+            return builder;
         }
     }
 }

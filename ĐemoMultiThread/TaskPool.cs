@@ -31,22 +31,23 @@ namespace ĐemoMultiThread
             }
         }
 
-        private class InternalTaskHolderGeneric<T> : IInternalTask
-        {
-            public Func<Task<T>> Task { get; set; }
-            public TaskCompletionSource<T> Waiter { get; set; }
+        //private class InternalTaskHolderGeneric<T> : IInternalTask
+        //{
+        //    public Func<Task<T>> Task { get; set; }
+        //    public TaskCompletionSource<T> Waiter { get; set; }
 
-            public async Task Execute()
-            {
-                var result = await Task();
-                Waiter.SetResult(result);
-            }
-        }
+        //    public async Task Execute()
+        //    {
+        //        var result = await Task();
+        //        Waiter.SetResult(result);
+        //    }
+        //}
 
         /// <summary>
         /// Raised when all tasks have been completed.
         /// </summary>
         public event EventHandler Completed;
+        public event EventHandler Available;
 
         /// <summary>
         /// Creates a new thread queue with a maximum number of threads
@@ -93,28 +94,30 @@ namespace ĐemoMultiThread
             }
         }
 
-        /// <summary>
-        /// Adds a task and runs it if free thread exists. Otherwise enqueue.
-        /// </summary>
-        /// <param name="task">The task that will be execute</param>
-        public Task<T> EnqueueAsync<T>(Func<Task<T>> task)
-        {
-            lock (_tasksMutex)
-            {
-                var holder = new InternalTaskHolderGeneric<T> { Task = task, Waiter = new TaskCompletionSource<T>() };
+        ///// <summary>
+        ///// Adds a task and runs it if free thread exists. Otherwise enqueue.
+        ///// </summary>
+        ///// <param name="task">The task that will be execute</param>
+        //public Task<T> EnqueueAsync<T>(Func<Task<T>> task)
+        //{
+        //    lock (_tasksMutex)
+        //    {
+        //        var holder = new InternalTaskHolderGeneric<T> { Task = task, Waiter = new TaskCompletionSource<T>() };
 
-                if (WorkingTasks.Count >= _threadsMaxCount)
-                    DefaultQueue.Enqueue(holder);
-                else
-                    StartTask(holder);
+        //        if (WorkingTasks.Count >= _threadsMaxCount)
+        //            DefaultQueue.Enqueue(holder);
+        //        else
+        //            StartTask(holder);
 
-                return holder.Waiter.Task;
-            }
-        }
+        //        return holder.Waiter.Task;
+        //    }
+        //}
 
         public async Task StartTaskAsync()
         {
             await CheckQueueAsync();
+            if (DefaultQueue.Count == 0 && WorkingTasks.Count == 0)
+                OnCompleted();
         }
 
         /// <summary>
@@ -124,7 +127,9 @@ namespace ĐemoMultiThread
         private async void StartTask(IInternalTask task)
         {
             WorkingTasks.Add(task);
+
             await task.Execute();
+
             await TaskCompletedAsync(task);
         }
 
@@ -133,6 +138,8 @@ namespace ĐemoMultiThread
             lock (_tasksMutex)
             {
                 WorkingTasks.Remove(task);
+
+                OnAvailable();
 
                 CheckQueueAsync();
 
@@ -162,6 +169,11 @@ namespace ĐemoMultiThread
         protected void OnCompleted()
         {
             Completed?.Invoke(this, null);
+        }
+
+        protected void OnAvailable()
+        {
+            Available?.Invoke(this, null);
         }
     }
 }

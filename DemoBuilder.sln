@@ -14,11 +14,9 @@ Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "DemoUnitTest", "DemoUnitTes
 EndProject
 Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "StubServer", "StubServer\StubServer.csproj", "{10E2C149-5DAE-4645-8248-71B26B1ABE09}"
 EndProject
-Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "WireMock.Net", "..\..\Projects\WireMock.Net\src\WireMock.Net\WireMock.Net.csproj", "{D3804228-91F4-4502-9595-39584E5A01AD}"
-EndProject
 Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "ĐemoMultiThread", "ĐemoMultiThread\ĐemoMultiThread.csproj", "{DCFBE824-48E6-4957-A22D-92693DDA0D2B}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "DemoTestCompletionSource", "DemoTestCompletionSource\DemoTestCompletionSource.csproj", "{9CDCFE69-F745-45AA-A212-4A2DF1167AFF}"
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "DemoTestCompletionSource", "DemoTestCompletionSource\DemoTestCompletionSource.csproj", "{9CDCFE69-F745-45AA-A212-4A2DF1167AFF}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
@@ -38,10 +36,6 @@ Global
 		{10E2C149-5DAE-4645-8248-71B26B1ABE09}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{10E2C149-5DAE-4645-8248-71B26B1ABE09}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{10E2C149-5DAE-4645-8248-71B26B1ABE09}.Release|Any CPU.Build.0 = Release|Any CPU
-		{D3804228-91F4-4502-9595-39584E5A01AD}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
-		{D3804228-91F4-4502-9595-39584E5A01AD}.Debug|Any CPU.Build.0 = Debug|Any CPU
-		{D3804228-91F4-4502-9595-39584E5A01AD}.Release|Any CPU.ActiveCfg = Release|Any CPU
-		{D3804228-91F4-4502-9595-39584E5A01AD}.Release|Any CPU.Build.0 = Release|Any CPU
 		{DCFBE824-48E6-4957-A22D-92693DDA0D2B}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
 		{DCFBE824-48E6-4957-A22D-92693DDA0D2B}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{DCFBE824-48E6-4957-A22D-92693DDA0D2B}.Release|Any CPU.ActiveCfg = Release|Any CPU
