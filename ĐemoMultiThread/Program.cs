@@ -1,5 +1,6 @@
 ﻿using Autofac;
 using Autofac.Extensions.DependencyInjection;
+using MediatR;
 using Microsoft.Extensions.Caching.Memory;
 using Microsoft.Extensions.DependencyInjection;
 using System;
@@ -14,7 +15,7 @@ namespace ĐemoMultiThread
 
         static readonly Random Rnd = new Random();
 
-        static void Main(string[] args)
+        static async Task Main(string[] args)
         {
             var services = new ServiceCollection();
 
@@ -41,6 +42,8 @@ namespace ĐemoMultiThread
 
                 var source = new CancellationTokenSource();
 
+                var mediator = scope.Resolve<IMediator>();
+
                 //var changeToken = new CancellationChangeToken(source.Token);
 
                 //var compositeChangeToken =
@@ -60,16 +63,21 @@ namespace ĐemoMultiThread
 
                 var innerTokenSource = new CancellationTokenSource();
 
-                publisher.Publish(new TestWorkerPool.Command
+                //publisher.Publish(new TestDataFlowV2.Command
+                //{
+                //    //TokenSource = innerTokenSource,
+                //    Id = Guid.NewGuid()
+                //}, PublishStrategy.ParallelWhenAll, source.Token).Wait(source.Token);
+
+                await mediator.Send(new TestDataFlowV2.Command
                 {
-                    //TokenSource = innerTokenSource,
                     Id = Guid.NewGuid()
-                }, PublishStrategy.ParallelWhenAll, source.Token);
+                }, source.Token);
 
                 Console.WriteLine("Press any key to cancel tasks");
                 Console.ReadLine();
                 source.Cancel();
-                //innerTokenSource.Cancel(false);
+                innerTokenSource.Cancel(false);
                 Console.WriteLine("IsCancellationRequested " + source.IsCancellationRequested);
                 Console.ReadLine();
             }
