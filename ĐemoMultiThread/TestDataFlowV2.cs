@@ -1,6 +1,7 @@
 ﻿using MediatR;
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
@@ -75,43 +76,101 @@ namespace ĐemoMultiThread
 
             public async Task<Unit> Handle(Command notification, CancellationToken cancellationToken)
             {
+                var count = 0;
+                var actionBlocks = new List<TransformBlock<Request, Request>>();
+                var canStop = false;
+                var broadcastBlock = new BroadcastBlock<Request>(null);
                 var bufferBlock = new BufferBlock<Request>();
-
-                var transformBlock = new TransformBlock<Request, Request>(async request => await ProcessRequest(request), _executionOptions);
-
-                //var actionBlock = new ActionBlock<Request>(ProcessRequest, _executionOptions);
-
-                var step2TransformBlock = new TransformBlock<Request, Request>(request => request, _executionOptions);
-
-                var step2BufferBlock = new BufferBlock<Request>();
-
-                var step3ActionBlock = new ActionBlock<Request>(async request =>
+                var bufferBlock2 = new BufferBlock<Request>();
+                var actionBlock2 = new ActionBlock<Request>(async request =>
                 {
-                    await Task.Delay(TimeSpan.FromSeconds(1), cancellationToken);
+                    count++;
 
-                    var builder = new StringBuilder()
+                    new StringBuilder()
                         .AppendStartDate()
-                        .AppendWithSeparator("Step 3")
-                        .AppendWithSeparator($"Id {request.Id.ToString().Substring(0, 3)}")
-                        .AppendWithSeparator($"Type {request.RequestType}")
-                        .AppendWithSeparator($"End {DateTime.Now:mm:ss:fff}")
+                        .AppendWithSeparator($"Count {count:00}".PadRight(11))
                         .WriteLine();
+
+                    if (count == 4)
+                    {
+                        canStop = true;
+
+                        new StringBuilder()
+                            .AppendStartDate()
+                            .AppendWithSeparator($"Can Stop")
+                            .AppendEndDate()
+                            .WriteLine();
+                    }
+
+                    if (!canStop)
+                    {
+                        var canSend = await broadcastBlock.SendAsync(request, cancellationToken);
+
+                        //new StringBuilder()
+                        //    .AppendStartDate()
+                        //    .AppendWithSeparator($"CanSend {canSend}")
+                        //    .WriteLine();
+                    }
                 });
 
-                //step2BufferBlock.LinkTo(step3ActionBlock, _options);
-                step2TransformBlock.LinkTo(step2BufferBlock, _options);
-                transformBlock.LinkTo(step2TransformBlock, _options);
-                bufferBlock.LinkTo(transformBlock, _options);
+                var transformBlock =
+                    new TransformBlock<Request, Request>(request => request, _executionOptions);
 
-                bufferBlock.Post(_items[0]);
-                bufferBlock.Post(_items[1]);
-                bufferBlock.Post(_items[2]);
+                var transformBlock2 =
+                    new TransformBlock<Request, Request>(request => request, _executionOptions);
 
-                //bufferBlock.Complete();
+                for (int i = 0; i < 2; i++)
+                {
+                    var actionBlock = new TransformBlock<Request, Request>(async request =>
+                    {
+                        await ProcessRequest(request);
 
-                await bufferBlock.Completion;
+                        //new StringBuilder()
+                        //    .AppendStartDate()
+                        //    .AppendWithSeparator("ActionBlock")
+                        //    .AppendWithSeparator($"Id {request.Id.ToString().Substring(0, 3)}")
+                        //    .AppendWithSeparator($"Type {request.RequestType.PadRight(18)}")
+                        //    .AppendEndDate()
+                        //    .WriteLine();
 
-                Console.WriteLine("Done");
+                        if (count > 4)
+                        {
+                            new StringBuilder()
+                                .AppendStartDate()
+                                .AppendWithSeparator($"Stop")
+                                .AppendEndDate()
+                                .WriteLine();
+
+                            broadcastBlock.Complete();
+                        }
+
+                        return request;
+                    }, new ExecutionDataflowBlockOptions
+                    {
+                        BoundedCapacity = 1
+                    });
+
+                    actionBlock.LinkTo(bufferBlock2, _options);
+                    bufferBlock.LinkTo(actionBlock, _options);
+                    actionBlocks.Add(actionBlock);
+                }
+
+                bufferBlock2.LinkTo(actionBlock2, _options);
+                transformBlock.LinkTo(bufferBlock, _options);
+                broadcastBlock.LinkTo(transformBlock, _options);
+
+                broadcastBlock.Post(_items[0]);
+                broadcastBlock.Post(_items[1]);
+                broadcastBlock.Post(_items[2]);
+
+                //await actionBlock2.Completion;
+
+                await Task.WhenAll(actionBlocks.Select(s => s.Completion));
+
+                new StringBuilder()
+                    .AppendStartDate()
+                    .AppendWithSeparator("Done".PadRight(11))
+                    .WriteLine();
 
                 return Unit.Value;
             }
@@ -120,14 +179,19 @@ namespace ĐemoMultiThread
 
             private async Task<Request> ProcessRequest(Request request)
             {
-                var random = new Random().Next(2, 5);
-
-                await Task.Delay(TimeSpan.FromSeconds(1));
-
                 var builder = new StringBuilder()
                     .AppendStartDate()
+                    .AppendWithSeparator("Process".PadRight(11))
                     .AppendWithSeparator($"Id {request.Id.ToString().Substring(0, 3)}")
-                    .AppendWithSeparator($"Type {request.RequestType}")
+                    .AppendWithSeparator($"Type {request.RequestType.PadRight(18)}");
+
+                var random = new Random().Next(5, 18);
+
+                await Task.Delay(TimeSpan.FromSeconds(random));
+
+                builder
+                    .AppendWithSeparator($"Delay {random}")
+                    .AppendEndDate()
                     .WriteLine();
 
                 request.LastProcessedDate = DateTime.Now;

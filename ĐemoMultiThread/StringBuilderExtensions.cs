@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Text;
+using System.Threading;
 
 namespace ĐemoMultiThread
 {
@@ -20,7 +21,14 @@ namespace ĐemoMultiThread
 
         public static StringBuilder AppendStartDate(this StringBuilder builder)
         {
-            builder.AppendWithSeparator("Start " + DateTime.Now.ToString("mm:ss:fff"));
+            builder.AppendWithSeparator("Start " + DateTime.Now.ToString("mm:ss:ffff"))
+                .AppendWithSeparator($"Thread {Thread.CurrentThread.ManagedThreadId.ToString("00")}");
+            return builder;
+        }
+
+        public static StringBuilder AppendEndDate(this StringBuilder builder)
+        {
+            builder.AppendWithSeparator("End " + DateTime.Now.ToString("mm:ss:ffff"));
             return builder;
         }
 
