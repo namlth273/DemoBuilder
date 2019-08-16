@@ -69,7 +69,7 @@ namespace ĐemoMultiThread
                 //    Id = Guid.NewGuid()
                 //}, PublishStrategy.ParallelWhenAll, source.Token).Wait(source.Token);
 
-                await mediator.Send(new TestDataFlowV2.Command
+                await mediator.Send(new TestDataFlowV3.Command
                 {
                     Id = Guid.NewGuid()
                 }, source.Token);

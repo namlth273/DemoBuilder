@@ -86,10 +86,10 @@ namespace ĐemoMultiThread
                 {
                     count++;
 
-                    new StringBuilder()
-                        .AppendStartDate()
-                        .AppendWithSeparator($"Count {count:00}".PadRight(11))
-                        .WriteLine();
+                    //new StringBuilder()
+                    //    .AppendStartDate()
+                    //    .AppendWithSeparator($"Count {count:00}".PadRight(11))
+                    //    .WriteLine();
 
                     if (count == 4)
                     {
@@ -100,6 +100,17 @@ namespace ĐemoMultiThread
                             .AppendWithSeparator($"Can Stop")
                             .AppendEndDate()
                             .WriteLine();
+
+                        if (!actionBlocks.Any(w => w.InputCount > 0))
+                        {
+                            new StringBuilder()
+                                .AppendStartDate()
+                                .AppendWithSeparator($"Stop")
+                                .AppendEndDate()
+                                .WriteLine();
+
+                            broadcastBlock.Complete();
+                        }
                     }
 
                     if (!canStop)
@@ -119,7 +130,7 @@ namespace ĐemoMultiThread
                 var transformBlock2 =
                     new TransformBlock<Request, Request>(request => request, _executionOptions);
 
-                for (int i = 0; i < 2; i++)
+                //for (int i = 0; i < 2; i++)
                 {
                     var actionBlock = new TransformBlock<Request, Request>(async request =>
                     {
@@ -133,21 +144,11 @@ namespace ĐemoMultiThread
                         //    .AppendEndDate()
                         //    .WriteLine();
 
-                        if (count > 4)
-                        {
-                            new StringBuilder()
-                                .AppendStartDate()
-                                .AppendWithSeparator($"Stop")
-                                .AppendEndDate()
-                                .WriteLine();
-
-                            broadcastBlock.Complete();
-                        }
 
                         return request;
                     }, new ExecutionDataflowBlockOptions
                     {
-                        BoundedCapacity = 1
+                        BoundedCapacity = MaxParallelCount
                     });
 
                     actionBlock.LinkTo(bufferBlock2, _options);
@@ -160,8 +161,9 @@ namespace ĐemoMultiThread
                 broadcastBlock.LinkTo(transformBlock, _options);
 
                 broadcastBlock.Post(_items[0]);
-                broadcastBlock.Post(_items[1]);
-                broadcastBlock.Post(_items[2]);
+                //broadcastBlock.Post(_items[1]);
+                //broadcastBlock.Post(_items[2]);
+                //broadcastBlock.Post(_items[3]);
 
                 //await actionBlock2.Completion;
 
@@ -187,7 +189,7 @@ namespace ĐemoMultiThread
 
                 var random = new Random().Next(5, 18);
 
-                await Task.Delay(TimeSpan.FromSeconds(random));
+                await Task.Delay(TimeSpan.FromSeconds(1));
 
                 builder
                     .AppendWithSeparator($"Delay {random}")
