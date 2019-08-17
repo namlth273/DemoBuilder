@@ -1,5 +1,6 @@
 ﻿using Autofac;
 using Autofac.Extensions.DependencyInjection;
+using AutoMapper;
 using MediatR;
 using Microsoft.Extensions.Caching.Memory;
 using Microsoft.Extensions.DependencyInjection;
@@ -20,6 +21,7 @@ namespace ĐemoMultiThread
             var services = new ServiceCollection();
 
             services.AddMemoryCache();
+            services.AddAutoMapper(typeof(Program).Assembly);
 
             var builder = new ContainerBuilder();
 

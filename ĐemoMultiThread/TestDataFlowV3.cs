@@ -1,6 +1,4 @@
-﻿using AutoFixture;
-using MediatR;
-using Newtonsoft.Json;
+﻿using MediatR;
 using System;
 using System.Collections.Generic;
 using System.Text;
@@ -22,14 +20,17 @@ namespace ĐemoMultiThread
             #region Ctor
 
             private readonly IServiceBusClient _client;
+            private readonly WorkerPool<Message> _workerPool;
             private readonly List<Request> _items;
             private readonly DataflowLinkOptions _options;
             private readonly ExecutionDataflowBlockOptions _executionOptions;
-            private const int MaxParallelCount = 3;
+            private const int MaxParallelCount = 6;
 
-            public NotificationHandler(IServiceBusClient client)
+            public NotificationHandler(IServiceBusClient client, WorkerPool<Message>.Factory workerPool)
             {
                 _client = client;
+                _workerPool = workerPool.Invoke(MaxParallelCount, ProcessRequest, null);
+
                 _options = new DataflowLinkOptions
                 {
                     PropagateCompletion = true
@@ -100,49 +101,49 @@ namespace ĐemoMultiThread
 
             public async Task<Unit> Handle(Command notification, CancellationToken cancellationToken)
             {
-                Console.WriteLine(JsonConvert.SerializeObject(await _client.GetSubscriptionInfo(""), Formatting.Indented));
-                Console.WriteLine(JsonConvert.SerializeObject(await _client.PullMessage(""), Formatting.Indented));
+                //Console.WriteLine(JsonConvert.SerializeObject(await _client.GetSubscriptionInfo(""), Formatting.Indented));
+                //Console.WriteLine(JsonConvert.SerializeObject(await _client.PullMessage(""), Formatting.Indented));
 
-                //new StringBuilder()
-                //    .AppendStartDate()
-                //    .AppendWithSeparator($"Start. Pending Count{_items.Count}")
-                //    .WriteLine();
+                new StringBuilder()
+                    .AppendStartDate()
+                    .AppendWithSeparator($"Start...")
+                    .WriteLine();
 
-                //var workerPool = new WorkerPool<Request>(MaxParallelCount, ProcessRequest, _items);
+                //var workerPool = new WorkerPool<Message>(MaxParallelCount, ProcessRequest, null);
 
-                //var isDone = await workerPool.StartAsync();
+                var isDone = await _workerPool.StartAsync();
 
-                //new StringBuilder()
-                //    .AppendStartDate()
-                //    .AppendWithSeparator($"isDone {isDone}")
-                //    .AppendWithSeparator($"PendingCount {_items.Count(w => w.MessageCount > 0)}")
-                //    .WriteLine();
+                new StringBuilder()
+                    .AppendStartDate()
+                    .AppendWithSeparator($"isDone {isDone}")
+                    //.AppendWithSeparator($"PendingCount {_items.Count(w => w.MessageCount > 0)}")
+                    .WriteLine();
 
                 return Unit.Value;
             }
 
             #region Private
 
-            private async Task<Request> ProcessRequest(Request request)
+            private async Task<Message> ProcessRequest(Message request)
             {
                 var builder = new StringBuilder()
                     .AppendStartDate()
-                    .AppendWithSeparator("Process".PadRight(11))
-                    .AppendWithSeparator($"Id {request.Id.ToString().Substring(0, 3)}")
-                    .AppendWithSeparator($"MessageCount {request.MessageCount:00}")
-                    .AppendWithSeparator($"Type {request.RequestType.PadRight(22)}");
+                    .AppendWithSeparator("Process".PadRight(11));
+                //.AppendWithSeparator($"Id {request.Id.ToString().Substring(0, 3)}")
+                //.AppendWithSeparator($"MessageCount {request.MessageCount:00}")
+                //.AppendWithSeparator($"Type {request.RequestType.PadRight(22)}");
 
                 var random = new Random().Next(5, 18);
 
-                await Task.Delay(TimeSpan.FromSeconds(random));
+                await Task.Delay(TimeSpan.FromSeconds(1));
 
-                builder
-                    .AppendWithSeparator($"Delay {random}")
-                    .AppendEndDate()
-                    .WriteLine();
+                //builder
+                //    .AppendWithSeparator($"Delay {random}")
+                //    .AppendEndDate()
+                //    .WriteLine();
 
-                request.LastProcessedDate = DateTime.Now;
-                request.MessageCount--;
+                //request.LastProcessedDate = DateTime.Now;
+                //request.MessageCount--;
 
                 return request;
             }
@@ -165,36 +166,6 @@ namespace ĐemoMultiThread
             Guid Id { get; set; }
             bool IsPaused { get; set; }
             int MessageCount { get; set; }
-        }
-
-        public interface IServiceBusClient
-        {
-            Task<SubscriptionInfoV2> GetSubscriptionInfo(string subscription);
-            Task<IMessageBody> PullMessage(string subscription);
-        }
-
-        public class ServiceBusClient : IServiceBusClient
-        {
-            private readonly IFixture _fixture;
-
-            public ServiceBusClient()
-            {
-                _fixture = new Fixture();
-            }
-
-            public Task<SubscriptionInfoV2> GetSubscriptionInfo(string subscription)
-            {
-                return Task.FromResult(new SubscriptionInfoV2
-                {
-                    SubscriptionType = "test",
-                    UndeliveredMessageCount = 6
-                });
-            }
-
-            public Task<IMessageBody> PullMessage(string subscription)
-            {
-                return Task.FromResult(_fixture.Create<MessageBody>() as IMessageBody);
-            }
         }
     }
 }

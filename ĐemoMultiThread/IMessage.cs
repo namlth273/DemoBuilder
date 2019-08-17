@@ -6,6 +6,7 @@
         string RealmId { get; set; }
         bool IsUpdateSubscription { get; set; }
         bool IsGetNextSubscription { get; set; }
+        bool HasNextSubscription { get; set; }
     }
 
     public class Message : IMessage
@@ -14,6 +15,7 @@
         public string RealmId { get; set; }
         public bool IsUpdateSubscription { get; set; }
         public bool IsGetNextSubscription { get; set; }
+        public bool HasNextSubscription { get; set; }
     }
 
     public interface IMessageBody

@@ -2,7 +2,6 @@
 using AutoFixture;
 using MediatR.Extensions.Autofac.DependencyInjection;
 using Microsoft.Extensions.Caching.Memory;
-using System;
 
 namespace ĐemoMultiThread
 {
@@ -13,9 +12,10 @@ namespace ĐemoMultiThread
             builder.AddMediatR(ThisAssembly);
             builder.RegisterType<Publisher>().InstancePerLifetimeScope();
             builder.RegisterType<MemoryCache>().As<IMemoryCache>().InstancePerLifetimeScope();
-            builder.RegisterType<TestDataFlowV3.ServiceBusClient>().As<TestDataFlowV3.IServiceBusClient>()
+            builder.RegisterType<ServiceBusClient>().As<IServiceBusClient>()
                 .InstancePerLifetimeScope();
             builder.RegisterType<Fixture>().As<IFixture>();
+            builder.RegisterGeneric(typeof(WorkerPool<>)).AsSelf();
         }
     }
 }
