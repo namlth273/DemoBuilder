@@ -1,4 +1,5 @@
-﻿using MediatR;
+﻿using ĐemoMultiThread.WorkerPool;
+using MediatR;
 using System;
 using System.Collections.Generic;
 using System.Text;
@@ -20,16 +21,16 @@ namespace ĐemoMultiThread
             #region Ctor
 
             private readonly IServiceBusClient _client;
-            private readonly WorkerPool<Message> _workerPool;
+            private readonly WorkerPoolV3 _workerPool;
             private readonly List<Request> _items;
             private readonly DataflowLinkOptions _options;
             private readonly ExecutionDataflowBlockOptions _executionOptions;
-            private const int MaxParallelCount = 6;
+            private const int MaxParallelCount = 2;
 
-            public NotificationHandler(IServiceBusClient client, WorkerPool<Message>.Factory workerPool)
+            public NotificationHandler(IServiceBusClient client, WorkerPoolV3.Factory workerPool)
             {
                 _client = client;
-                _workerPool = workerPool.Invoke(MaxParallelCount, ProcessRequest, null);
+                _workerPool = workerPool.Invoke("RaisAgencyDataDownloader", MaxParallelCount);
 
                 _options = new DataflowLinkOptions
                 {

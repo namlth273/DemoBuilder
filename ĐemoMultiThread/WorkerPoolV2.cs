@@ -9,7 +9,7 @@ using System.Threading.Tasks.Dataflow;
 
 namespace ĐemoMultiThread
 {
-    public class WorkerPool<T> where T : Message
+    public class WorkerPoolV2<T> where T : Message
     {
         public delegate WorkerPool<T> Factory(int maxParallelCount, Func<T, Task> handleMessage,
             IEnumerable<T> queueItems = null);
@@ -24,19 +24,19 @@ namespace ĐemoMultiThread
         private readonly IServiceBusClient _client;
         private readonly IFixture _fixture;
 
-        private BroadcastBlock<T> _broadcastBlock;
-        private BufferBlock<T> _bufferCountBlock;
-        private TransformBlock<T, T> _handleMessageBlock;
-        private TransformBlock<T, T> _processCountBlock;
-        private BufferBlock<T> _bufferSubscriptionBlock;
-        private TransformBlock<T, T> _getNextSubscriptionBlock;
-        private TransformBlock<T, T> _updateSubscriptionBlock;
-        private BroadcastBlock<T> _intervalBlock;
-        private ActionBlock<T> _endBlock;
+        private BroadcastBlock<WorkerPoolMessage<T>> _broadcastBlock;
+        private BufferBlock<WorkerPoolMessage<T>> _bufferCountBlock;
+        private TransformBlock<WorkerPoolMessage<T>, WorkerPoolMessage<T>> _handleMessageBlock;
+        private TransformBlock<WorkerPoolMessage<T>, WorkerPoolMessage<T>> _processCountBlock;
+        private BufferBlock<WorkerPoolMessage<T>> _bufferSubscriptionBlock;
+        private TransformBlock<WorkerPoolMessage<T>, WorkerPoolMessage<T>> _getNextSubscriptionBlock;
+        private TransformBlock<WorkerPoolMessage<T>, WorkerPoolMessage<T>> _updateSubscriptionBlock;
+        private BroadcastBlock<Task<WorkerPoolMessage<T>>> _intervalBlock;
+        private ActionBlock<WorkerPoolMessage<T>> _endBlock;
         private readonly IList<ISubscriptionInfoV2> _subscriptions;
         private bool _hasCompleted = false;
 
-        public WorkerPool(IMapper mapper, int maxParallelCount, Func<T, Task> handleMessage, IEnumerable<T> queueItems = null)
+        public WorkerPoolV2(IMapper mapper, int maxParallelCount, Func<T, Task> handleMessage, IEnumerable<T> queueItems = null)
         {
             _client = new ServiceBusClient();
             _fixture = new Fixture();
@@ -61,8 +61,8 @@ namespace ĐemoMultiThread
 
         private void InitBlocks()
         {
-            _broadcastBlock = new BroadcastBlock<T>(message => message);
-            _endBlock = new ActionBlock<T>(message =>
+            _broadcastBlock = new BroadcastBlock<WorkerPoolMessage<T>>(message => message);
+            _endBlock = new ActionBlock<WorkerPoolMessage<T>>(message =>
             {
                 _hasCompleted = !_hasCompleted;
                 new StringBuilder().AppendStartDate().AppendWithSeparator("Ending...")
@@ -70,14 +70,14 @@ namespace ĐemoMultiThread
                     .WriteLine();
                 _broadcastBlock.Complete();
             });
-            _bufferCountBlock = new BufferBlock<T>(_executionBlockOptions);
-            _handleMessageBlock = new TransformBlock<T, T>(async message =>
+            _bufferCountBlock = new BufferBlock<WorkerPoolMessage<T>>(_executionBlockOptions);
+            _handleMessageBlock = new TransformBlock<WorkerPoolMessage<T>, WorkerPoolMessage<T>>(async message =>
             {
-                var response = _mapper.Map<Message>(message);
+                var response = _mapper.Map<Message>(message.Message);
 
                 response.IsGetNextSubscription = true;
 
-                await _handleMessage(message);
+                await _handleMessage(message.Message);
 
                 new StringBuilder()
                     .AppendStartDate()
@@ -88,46 +88,48 @@ namespace ĐemoMultiThread
                     //.WriteLine()
                     ;
 
-                return response as T;
+                message.Message = response as T;
+
+                return message;
             }, new ExecutionDataflowBlockOptions
             {
                 MaxDegreeOfParallelism = _maxParallelCount
             });
-            _processCountBlock = new TransformBlock<T, T>(async message =>
+            _processCountBlock = new TransformBlock<WorkerPoolMessage<T>, WorkerPoolMessage<T>>(async message =>
             {
-
                 //TODO implement process count
                 var builder = new StringBuilder().AppendStartDate().AppendWithSeparator("ProcessCountBlock");
 
-                var response = _mapper.Map<Message>(message);
+                var response = _mapper.Map<WorkerPoolMessage<T>>(message);
 
-                if (message.IsGetNextSubscription)
+                if (message.NextStep == EnumNextStep.GetNextMessage)
                 {
                     _proceededMessageCount--;
-                    response.IsGetNextSubscription = true;
+                    message.NextStep = EnumNextStep.GetNextMessage;
                     builder.AppendWithSeparator($"Count -- {_proceededMessageCount}");
                 }
                 else
                 {
                     _proceededMessageCount++;
-                    response.IsUpdateSubscription = true;
+                    message.NextStep = EnumNextStep.UpdateMessage;
                     builder.AppendWithSeparator($"Count ++ {_proceededMessageCount}");
                 }
 
                 builder
-                    .AppendWithSeparator($"Sub {response.Subscription.Substring(response.Subscription.Length - 3, 3)}")
-                    .AppendWithSeparator($"Next? {response.IsGetNextSubscription}")
-                    .AppendWithSeparator($"Update? {response.IsUpdateSubscription}")
+                    .AppendWithSeparator($"Sub {response.Message.Subscription.Substring(response.Message.Subscription.Length - 3, 3)}")
+                    .AppendWithSeparator($"Next? {response.Message.IsGetNextSubscription}")
+                    .AppendWithSeparator($"Update? {response.Message.IsUpdateSubscription}")
                     .WriteLine()
                     ;
 
-                return response as T;
+                return response;
             });
-            _bufferSubscriptionBlock = new BufferBlock<T>(_executionBlockOptions);
-            _updateSubscriptionBlock = new TransformBlock<T, T>(message =>
+            _bufferSubscriptionBlock = new BufferBlock<WorkerPoolMessage<T>>(_executionBlockOptions);
+            _updateSubscriptionBlock = new TransformBlock<WorkerPoolMessage<T>, WorkerPoolMessage<T>>(message =>
             {
                 //TODO implement update subscription
-                var subscription = _subscriptions.FirstOrDefault(w => w.SubscriptionType == message.Subscription);
+                var subscription =
+                    _subscriptions.FirstOrDefault(w => w.SubscriptionType == message.Message.Subscription);
 
                 if (subscription != null)
                 {
@@ -136,16 +138,15 @@ namespace ĐemoMultiThread
                     new StringBuilder().AppendStartDate()
                         .AppendWithSeparator($"UpdateSubscriptionBlock")
                         .AppendWithSeparator(
-                            $"Sub {message.Subscription.Substring(message.Subscription.Length - 3, 3)}")
+                            $"Sub {message.Message.Subscription.Substring(message.Message.Subscription.Length - 3, 3)}")
                         .AppendWithSeparator($"UndeliveredMessageCount {subscription.UndeliveredMessageCount}")
                         //.WriteLine()
                         ;
-
                 }
 
                 return message;
             });
-            _getNextSubscriptionBlock = new TransformBlock<T, T>(message =>
+            _getNextSubscriptionBlock = new TransformBlock<WorkerPoolMessage<T>, WorkerPoolMessage<T>>(message =>
             {
                 //TODO implement get next subscription
                 var subscription = _subscriptions
@@ -157,17 +158,20 @@ namespace ĐemoMultiThread
                     new StringBuilder().AppendStartDate()
                         .AppendWithSeparator($"GetNextBlock")
                         .AppendWithSeparator(
-                            $"Sub {message.Subscription.Substring(message.Subscription.Length - 3, 3)}")
+                            $"Sub {message.Message.Subscription.Substring(message.Message.Subscription.Length - 3, 3)}")
                         //.WriteLine()
                         ;
 
-                    var nextMessage = new Message
+                    var nextMessage = new WorkerPoolMessage<Message>
                     {
-                        Subscription = subscription.SubscriptionType,
-                        HasNextSubscription = true
+                        Message = new Message
+                        {
+                            Subscription = subscription.SubscriptionType,
+                        },
+                        NextStep = EnumNextStep.GetNextMessage
                     };
 
-                    return nextMessage as T;
+                    return nextMessage as WorkerPoolMessage<T>;
                 }
                 //else
                 //{
@@ -178,27 +182,26 @@ namespace ĐemoMultiThread
 
                 return null;
             });
-            //_intervalBlock = new BroadcastBlock<T>(async message =>
-            //{
-            //    //TODO delay 30s
-            //    await Task.Delay(TimeSpan.FromSeconds(1));
+            _intervalBlock = new BroadcastBlock<Task<WorkerPoolMessage<T>>>(async message =>
+            {
+                //TODO delay 30s
+                await Task.Delay(TimeSpan.FromSeconds(1));
 
-            //    //TODO implement interval to get subscription from API
-            //    new StringBuilder().AppendStartDate().AppendWithSeparator($"Interval").WriteLine();
+                //TODO implement interval to get subscription from API
+                new StringBuilder().AppendStartDate().AppendWithSeparator($"Interval").WriteLine();
 
-            //    return message;
-            //});
+                return await message;
+            });
 
             _intervalBlock.LinkTo(_intervalBlock);
             //_intervalBlock.LinkTo(_bufferSubscriptionBlock);
             // order matter for _getNextSubscriptionBlock
-            _getNextSubscriptionBlock.LinkTo(DataflowBlock.NullTarget<T>(), _linkOptions, message => _hasCompleted);
-            _getNextSubscriptionBlock.LinkTo(DataflowBlock.NullTarget<T>(), _linkOptions, message => message == null & _proceededMessageCount > 0);
+            _getNextSubscriptionBlock.LinkTo(DataflowBlock.NullTarget<WorkerPoolMessage<T>>(), _linkOptions, message => _hasCompleted);
+            _getNextSubscriptionBlock.LinkTo(DataflowBlock.NullTarget<WorkerPoolMessage<T>>(), _linkOptions, message => message == null & _proceededMessageCount > 0);
             _getNextSubscriptionBlock.LinkTo(_endBlock, _linkOptions, message => !_hasCompleted && message == null);
-            _getNextSubscriptionBlock.LinkTo(_broadcastBlock, _linkOptions, message => !message.IsGetNextSubscription && !message.IsUpdateSubscription && message.HasNextSubscription);
-            _getNextSubscriptionBlock.LinkTo(DataflowBlock.NullTarget<T>(), _linkOptions, message => !message.HasNextSubscription);
-            _bufferSubscriptionBlock.LinkTo(_getNextSubscriptionBlock, _linkOptions, message => message.IsGetNextSubscription);
-            _bufferSubscriptionBlock.LinkTo(_updateSubscriptionBlock, _linkOptions, message => message.IsUpdateSubscription);
+            _getNextSubscriptionBlock.LinkTo(_broadcastBlock, _linkOptions);
+            _bufferSubscriptionBlock.LinkTo(_getNextSubscriptionBlock, _linkOptions, message => message.NextStep == EnumNextStep.GetNextMessage);
+            _bufferSubscriptionBlock.LinkTo(_updateSubscriptionBlock, _linkOptions, message => message.NextStep == EnumNextStep.UpdateMessage);
             _processCountBlock.LinkTo(_bufferSubscriptionBlock, _linkOptions);
             _bufferCountBlock.LinkTo(_processCountBlock, _linkOptions);
             _handleMessageBlock.LinkTo(_bufferCountBlock, _linkOptions);
@@ -218,12 +221,12 @@ namespace ĐemoMultiThread
                 RealmId = "shared",
             };
 
-            _broadcastBlock.Post(message as T);
-            _broadcastBlock.Post(message as T);
-            _broadcastBlock.Post(message as T);
-            _broadcastBlock.Post(message as T);
-            _broadcastBlock.Post(message as T);
-            _broadcastBlock.Post(message as T);
+            var workerPoolMessage = new WorkerPoolMessage<T>
+            {
+                Message = message as T
+            };
+
+            _broadcastBlock.Post(workerPoolMessage);
 
             await _broadcastBlock.Completion;
 
@@ -231,13 +234,17 @@ namespace ĐemoMultiThread
         }
     }
 
-    public class MappingProfile : Profile
+    public class WorkerPoolMessage<T> where T : IMessage
     {
-        public MappingProfile()
-        {
-            CreateMap<Message, Message>()
-                .ForMember(m => m.IsGetNextSubscription, o => o.Ignore())
-                .ForMember(m => m.IsUpdateSubscription, o => o.Ignore());
-        }
+        public T Message { get; set; }
+        public EnumNextStep? NextStep { get; set; }
+        public bool HasCompleted { get; set; }
+    }
+
+    public enum EnumNextStep
+    {
+        GetNextMessage,
+        UpdateMessage,
+        UpdateMessageInterval
     }
 }

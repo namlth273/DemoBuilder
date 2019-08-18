@@ -1,4 +1,5 @@
-﻿using System;
+﻿using ĐemoMultiThread.WorkerPool;
+using System;
 using System.Text;
 using System.Threading;
 
@@ -35,6 +36,20 @@ namespace ĐemoMultiThread
         public static StringBuilder WriteLine(this StringBuilder builder)
         {
             Console.WriteLine(builder.ToString());
+            return builder;
+        }
+
+        public static StringBuilder AppendSubscription(this StringBuilder builder, string subscription)
+        {
+            builder.AppendWithSeparator(
+                $"Sub {subscription.Substring(subscription.Length - 3, 3)}");
+            return builder;
+        }
+
+        public static StringBuilder AppendNextStep(this StringBuilder builder, WorkerPool.IMessage message)
+        {
+            builder.AppendWithSeparator($"Next? {message.NextStep == EnumNextStep.GetNextMessage}")
+                .AppendWithSeparator($"Update? {message.NextStep == EnumNextStep.UpdateMessage}");
             return builder;
         }
     }

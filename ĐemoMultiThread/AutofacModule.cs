@@ -1,5 +1,6 @@
 ﻿using Autofac;
 using AutoFixture;
+using ĐemoMultiThread.WorkerPool;
 using MediatR.Extensions.Autofac.DependencyInjection;
 using Microsoft.Extensions.Caching.Memory;
 
@@ -15,7 +16,9 @@ namespace ĐemoMultiThread
             builder.RegisterType<ServiceBusClient>().As<IServiceBusClient>()
                 .InstancePerLifetimeScope();
             builder.RegisterType<Fixture>().As<IFixture>();
+            builder.RegisterType<ProcessMessageBlock>().As<IDataFlowHandler>();
             builder.RegisterGeneric(typeof(WorkerPool<>)).AsSelf();
+            builder.RegisterType<WorkerPoolV3>().AsSelf();
         }
     }
 }

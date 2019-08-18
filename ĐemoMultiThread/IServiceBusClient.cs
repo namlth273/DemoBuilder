@@ -6,7 +6,7 @@ namespace ĐemoMultiThread
 {
     public interface IServiceBusClient
     {
-        Task<SubscriptionInfoV2> GetSubscriptionInfo(string subscription);
+        Task<SubscriptionInfoV2> GetSubscription(string subscription);
         Task<IMessageBody> PullMessage(string subscription);
     }
 
@@ -19,12 +19,12 @@ namespace ĐemoMultiThread
             _fixture = new Fixture();
         }
 
-        public Task<SubscriptionInfoV2> GetSubscriptionInfo(string subscription)
+        public Task<SubscriptionInfoV2> GetSubscription(string subscription)
         {
             return Task.FromResult(new SubscriptionInfoV2
             {
-                SubscriptionType = Guid.NewGuid().ToString(),
-                UndeliveredMessageCount = 18
+                SubscriptionType = "RaisAgencyDataDownloader",
+                UndeliveredMessageCount = 6
             });
         }
 
